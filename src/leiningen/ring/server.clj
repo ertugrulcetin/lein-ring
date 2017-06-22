@@ -1,6 +1,7 @@
 (ns leiningen.ring.server
   (:require [leinjacker.deps :as deps]
             [leiningen.core.classpath :as classpath]
+            [clojure.tools.namespace.repl :as tools.ns]
             [clojure.java.io :as io])
   (:use [leinjacker.eval :only (eval-in-project)]
         [leiningen.ring.util :only (ensure-handler-set! update-project ring-version)]))
@@ -9,18 +10,20 @@
   "list of all dirs on the leiningen classpath"
   [project]
   (filter
-   #(.isDirectory (io/file %))
-   (classpath/get-classpath project)))
+    #(.isDirectory (io/file %))
+    (classpath/get-classpath project)))
 
 (defn load-namespaces
   "Create require forms for each of the supplied symbols. This exists because
   Clojure cannot load and use a new namespace in the same eval form."
   [& syms]
-  `(require
-    ~@(for [s syms :when s]
-        `'~(if-let [ns (namespace s)]
-             (symbol ns)
-             s))))
+  `(do
+     (tools.ns/refresh-all)
+     (require
+       ~@(for [s syms :when s]
+           `'~(if-let [ns (namespace s)]
+                (symbol ns)
+                s)))))
 
 (defn reload-paths [project]
   (or (get-in project [:ring :reload-paths])
@@ -55,13 +58,13 @@
 
 (defn start-nrepl-expr [project]
   (let [nrepl-opts (-> project :ring :nrepl)
-        port (:port nrepl-opts 0)
-        bind (:host nrepl-opts)
-        handler (nrepl-handler (nrepl-middleware project))]
+        port       (:port nrepl-opts 0)
+        bind       (:host nrepl-opts)
+        handler    (nrepl-handler (nrepl-middleware project))]
     `(let [{port# :port} (clojure.tools.nrepl.server/start-server
-                          :port ~port
-                          :bind ~bind
-                          :handler ~handler)]
+                           :port ~port
+                           :bind ~bind
+                           :handler ~handler)]
        (doseq [port-file# ["target/repl-port" ".nrepl-port"]]
          (-> port-file#
              java.io.File.
@@ -77,22 +80,22 @@
                     (assoc-in [:ring :reload-paths] (reload-paths project))
                     (update-in [:ring] merge options))]
     (eval-in-project
-     (-> project add-server-dep add-optional-nrepl-dep)
-     (if (nrepl? project)
-       `(do ~(start-nrepl-expr project) ~(start-server-expr project))
-       (start-server-expr project))
-     (apply load-namespaces
-            (conj (into
-                   ['ring.server.leiningen
-                    (if (nrepl? project) 'clojure.tools.nrepl.server)]
-                   (if (nrepl? project) (nrepl-middleware project)))
-                  (-> project :ring :handler)
-                  (-> project :ring :init)
-                  (-> project :ring :destroy))))))
+      (-> project add-server-dep add-optional-nrepl-dep)
+      (if (nrepl? project)
+        `(do ~(start-nrepl-expr project) ~(start-server-expr project))
+        (start-server-expr project))
+      (apply load-namespaces
+             (conj (into
+                     ['ring.server.leiningen
+                      (if (nrepl? project) 'clojure.tools.nrepl.server)]
+                     (if (nrepl? project) (nrepl-middleware project)))
+                   (-> project :ring :handler)
+                   (-> project :ring :init)
+                   (-> project :ring :destroy))))))
 
 (defn server
   "Start a Ring server and open a browser."
   ([project]
-     (server-task project {}))
+   (server-task project {}))
   ([project port]
-     (server-task project {:port (Integer. port)})))
+   (server-task project {:port (Integer. port)})))
