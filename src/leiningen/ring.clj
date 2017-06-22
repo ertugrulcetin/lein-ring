@@ -28,8 +28,3 @@
        "uberwar"         (apply uberwar project args)
                          (println "Subtask" (str \" subtask \") "not found."
                                   (subtask-help-for *ns* #'ring)))))
-
-(defn handler [request]
-  {:status 200
-   :headers {"Content-Type" "text/html"}
-   :body "Hello World"})

@@ -8,5 +8,4 @@
   :dependencies [[org.clojure/data.xml "0.0.8"]
                  [org.clojure/tools.namespace "0.2.11"]
                  [leinjacker "0.4.2"]]
-  :ring {:handler leiningen.ring/handler}
   :eval-in-leiningen true)
